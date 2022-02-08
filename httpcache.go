@@ -4,6 +4,7 @@ import (
 	"bytes"
 	"encoding/gob"
 	"errors"
+	"fmt"
 	"hash/fnv"
 	"net/http"
 	"net/url"
@@ -57,7 +58,7 @@ func (m middleware) ServeHTTP(w http.ResponseWriter, r *http.Request) {
 	}
 
 	key := m.generateKey(r.URL)
-	data, err := m.store.Get(key)
+	cr, err := m.getCachedResponse(key)
 	if err == ErrNoEntry {
 		rec := newHttpResponseRecorder(w)
 		m.next.ServeHTTP(rec, r)
@@ -66,18 +67,7 @@ func (m middleware) ServeHTTP(w http.ResponseWriter, r *http.Request) {
 			return
 		}
 
-		cp := cachedResponse{
-			StatusCode: rec.statusCode,
-			Body:       rec.body.Bytes(),
-			Header:     rec.Header(),
-		}
-		var buf bytes.Buffer
-		if err := gob.NewEncoder(&buf).Encode(cp); err != nil {
-			// TODO handle
-			return
-		}
-
-		if err := m.store.Set(key, buf.Bytes(), m.ttl); err != nil {
+		if err := m.saveCachedResponse(key, newCachedResponse(rec)); err != nil {
 			// TODO handle
 		}
 		return
@@ -90,14 +80,9 @@ func (m middleware) ServeHTTP(w http.ResponseWriter, r *http.Request) {
 		return
 	}
 
-	var cp cachedResponse
-	if err := gob.NewDecoder(bytes.NewReader(data)).Decode(&cp); err != nil {
-		// TODO handle
-		return
-	}
-	copyHeader(w.Header(), cp.Header)
-	w.WriteHeader(cp.StatusCode)
-	if _, err := w.Write(cp.Body); err != nil {
+	copyHeader(w.Header(), cr.Header)
+	w.WriteHeader(cr.StatusCode)
+	if _, err := w.Write(cr.Body); err != nil {
 		// TODO handle
 	}
 }
@@ -110,6 +95,30 @@ func (m middleware) generateKey(u *url.URL) uint64 {
 	urlCopy := *u
 	sortURLParams(&urlCopy)
 	return m.keygen.Generate(urlCopy.String())
+}
+
+func (m middleware) saveCachedResponse(key uint64, res cachedResponse) error {
+	var buf bytes.Buffer
+	if err := gob.NewEncoder(&buf).Encode(res); err != nil {
+		return fmt.Errorf("failed to encode object: %v", err)
+	}
+
+	if err := m.store.Set(key, buf.Bytes(), m.ttl); err != nil {
+		return fmt.Errorf("failed to save response to store: %v", err)
+	}
+	return nil
+}
+
+func (m middleware) getCachedResponse(key uint64) (cachedResponse, error) {
+	data, err := m.store.Get(key)
+	if err != nil {
+		return cachedResponse{}, err
+	}
+	var cp cachedResponse
+	if err := gob.NewDecoder(bytes.NewReader(data)).Decode(&cp); err != nil {
+		return cachedResponse{}, fmt.Errorf("failed to decode object: %v", err)
+	}
+	return cp, nil
 }
 
 func sortURLParams(URL *url.URL) {
@@ -126,4 +135,12 @@ type cachedResponse struct {
 	StatusCode int
 	Body       []byte
 	Header     http.Header
+}
+
+func newCachedResponse(rec *httpResponseRecorder) cachedResponse {
+	return cachedResponse{
+		StatusCode: rec.statusCode,
+		Body:       rec.body.Bytes(),
+		Header:     rec.Header(),
+	}
 }
