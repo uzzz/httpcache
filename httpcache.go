@@ -131,6 +131,12 @@ func sortURLParams(URL *url.URL) {
 	URL.RawQuery = params.Encode()
 }
 
+func copyHeader(dst http.Header, src http.Header) {
+	for k, v := range src {
+		dst[k] = v
+	}
+}
+
 type cachedResponse struct {
 	StatusCode int
 	Body       []byte
