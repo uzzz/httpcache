@@ -75,7 +75,7 @@ type Store struct {
 	al            *accessList
 }
 
-// NewStore initializes memory adapter.
+// NewStore initializes memory store.
 func NewStore(opts ...Option) (*Store, error) {
 	options := defaultOptions
 
