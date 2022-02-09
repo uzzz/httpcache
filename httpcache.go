@@ -42,17 +42,24 @@ func headerBypassCacheFunc(header string) BypassCacheFunc {
 	}
 }
 
+// OnErrorFunc is a error handler callback.
+type OnErrorFunc func(err error)
+
+func noopOnErrorFunc(_ error) {}
+
 // Option is used to set middleware settings.
 type Option func(o *Options) error
 
 type Options struct {
 	ttl             time.Duration
 	bypassCacheFunc BypassCacheFunc
+	onErrorFunc     OnErrorFunc
 }
 
 var defaultOptions = Options{
 	ttl:             24 * time.Hour,
 	bypassCacheFunc: headerBypassCacheFunc("X-Bypass-Cache"),
+	onErrorFunc:     noopOnErrorFunc,
 }
 
 type middleware struct {
@@ -61,6 +68,7 @@ type middleware struct {
 	keygen      keyGenerator
 	ttl         time.Duration
 	bypassCache BypassCacheFunc
+	onErrorFunc OnErrorFunc
 }
 
 func NewMiddleware(store Store, opts ...Option) (func(http.Handler) http.Handler, error) {
@@ -79,6 +87,7 @@ func NewMiddleware(store Store, opts ...Option) (func(http.Handler) http.Handler
 			keygen:      fnvHashKeyGenerator{},
 			ttl:         options.ttl,
 			bypassCache: options.bypassCacheFunc,
+			onErrorFunc: options.onErrorFunc,
 		}
 	}, nil
 }
@@ -100,12 +109,12 @@ func (m middleware) ServeHTTP(w http.ResponseWriter, r *http.Request) {
 		}
 
 		if err := m.saveCachedResponse(key, newCachedResponse(rec)); err != nil {
-			// TODO handle
+			m.onErrorFunc(err)
 		}
 		return
 	}
 	if err != nil {
-		// TODO handle
+		m.onErrorFunc(err)
 		// Some error has occurred. Gracefully degrade - simply proceed
 		// with the normal flow
 		m.next.ServeHTTP(w, r)
@@ -115,7 +124,7 @@ func (m middleware) ServeHTTP(w http.ResponseWriter, r *http.Request) {
 	copyHeader(w.Header(), cr.Header)
 	w.WriteHeader(cr.StatusCode)
 	if _, err := w.Write(cr.Body); err != nil {
-		// TODO handle
+		m.onErrorFunc(err)
 	}
 }
 
@@ -204,6 +213,19 @@ func WithBypassCacheHeader(header string) Option {
 		}
 
 		o.bypassCacheFunc = headerBypassCacheFunc(header)
+
+		return nil
+	}
+}
+
+// WithOnErrorFunc sets cache error callback handler
+func WithOnErrorFunc(f OnErrorFunc) Option {
+	return func(o *Options) error {
+		if f == nil {
+			return errors.New("function must not be nil")
+		}
+
+		o.onErrorFunc = f
 
 		return nil
 	}
