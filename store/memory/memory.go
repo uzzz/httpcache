@@ -199,3 +199,5 @@ func WithCapacity(bytes int) Option {
 		return nil
 	}
 }
+
+var _ httpcache.Store = (*Store)(nil)

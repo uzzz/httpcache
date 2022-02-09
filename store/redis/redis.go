@@ -99,3 +99,5 @@ func (s *Store) Set(key uint64, data []byte, ttl time.Duration) error {
 func keyToString(key uint64) string {
 	return strconv.FormatUint(key, 10)
 }
+
+var _ httpcache.Store = (*Store)(nil)
