@@ -27,8 +27,7 @@ func TestStore(t *testing.T) {
 		t.Errorf("expected to return '%s', got '%s'", string(data), string(fetchedData))
 	}
 
-	_, err = store.Get(uint64(2))
-	if err != httpcache.ErrNoEntry {
+	if _, err := store.Get(uint64(2)); err != httpcache.ErrNoEntry {
 		t.Errorf("expected httpcache.ErrNoEntry, got %s", err)
 	}
 }
