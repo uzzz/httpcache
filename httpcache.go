@@ -170,3 +170,16 @@ func newCachedResponse(rec *httpResponseRecorder) cachedResponse {
 		Header:     rec.Header(),
 	}
 }
+
+// WithTTL sets the TTL for cache items
+func WithTTL(ttl time.Duration) Option {
+	return func(o *Options) error {
+		if ttl == 0 {
+			return errors.New("ttl must be > 0")
+		}
+
+		o.ttl = ttl
+
+		return nil
+	}
+}
