@@ -34,14 +34,15 @@ func (_ fnvHashKeyGenerator) Generate(s string) uint64 {
 	return h.Sum64()
 }
 
-func NewMiddleware(store Store) func(http.Handler) http.Handler {
-	return func(next http.Handler) http.Handler {
-		return &middleware{
-			store:  store,
-			keygen: fnvHashKeyGenerator{},
-			next:   next,
-		}
-	}
+// Option is used to set middleware settings.
+type Option func(o *Options) error
+
+type Options struct {
+	ttl time.Duration
+}
+
+var defaultOptions = Options{
+	ttl: 24 * time.Hour,
 }
 
 type middleware struct {
@@ -49,6 +50,25 @@ type middleware struct {
 	keygen KeyGenerator
 	next   http.Handler
 	ttl    time.Duration
+}
+
+func NewMiddleware(store Store, opts ...Option) (func(http.Handler) http.Handler, error) {
+	options := defaultOptions
+
+	for _, opt := range opts {
+		if err := opt(&options); err != nil {
+			return nil, err
+		}
+	}
+
+	return func(next http.Handler) http.Handler {
+		return &middleware{
+			store:  store,
+			keygen: fnvHashKeyGenerator{},
+			next:   next,
+			ttl:    options.ttl,
+		}
+	}, nil
 }
 
 func (m middleware) ServeHTTP(w http.ResponseWriter, r *http.Request) {

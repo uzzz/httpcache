@@ -104,7 +104,10 @@ func TestMiddleware(t *testing.T) {
 	for _, testCase := range testCases {
 		t.Run(testCase.name, func(t *testing.T) {
 			store := &testStore{}
-			mw := NewMiddleware(store)
+			mw, err := NewMiddleware(store)
+			if err != nil {
+				t.Fatal("unexpected error", err)
+			}
 			handler = mw(handler)
 
 			var rr *httptest.ResponseRecorder
