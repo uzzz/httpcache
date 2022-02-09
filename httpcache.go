@@ -57,8 +57,8 @@ var defaultOptions = Options{
 
 type middleware struct {
 	store       Store
-	keygen      keyGenerator
 	next        http.Handler
+	keygen      keyGenerator
 	ttl         time.Duration
 	bypassCache BypassCacheFunc
 }
@@ -75,8 +75,8 @@ func NewMiddleware(store Store, opts ...Option) (func(http.Handler) http.Handler
 	return func(next http.Handler) http.Handler {
 		return &middleware{
 			store:       store,
-			keygen:      fnvHashKeyGenerator{},
 			next:        next,
+			keygen:      fnvHashKeyGenerator{},
 			ttl:         options.ttl,
 			bypassCache: options.bypassCacheFunc,
 		}
