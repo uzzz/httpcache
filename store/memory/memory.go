@@ -1,6 +1,7 @@
 package memory
 
 import (
+	"context"
 	"fmt"
 	"math"
 	"sync"
@@ -104,7 +105,7 @@ func NewStore(opts ...Option) (*Store, error) {
 }
 
 // Get data from store
-func (s *Store) Get(key uint64) ([]byte, error) {
+func (s *Store) Get(_ context.Context, key uint64) ([]byte, error) {
 	s.mutex.Lock()
 	defer s.mutex.Unlock()
 
@@ -125,7 +126,7 @@ func (s *Store) Get(key uint64) ([]byte, error) {
 }
 
 // Set sets data
-func (s *Store) Set(key uint64, data []byte, ttl time.Duration) error {
+func (s *Store) Set(_ context.Context, key uint64, data []byte, ttl time.Duration) error {
 	s.mutex.Lock()
 	defer s.mutex.Unlock()
 

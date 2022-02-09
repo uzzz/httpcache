@@ -1,6 +1,7 @@
 package memory
 
 import (
+	"context"
 	"reflect"
 	"testing"
 	"time"
@@ -9,17 +10,19 @@ import (
 )
 
 func TestStore(t *testing.T) {
+	ctx := context.Background()
+
 	store, err := NewStore()
 	if err != nil {
 		t.Fatal("unexpected error", err)
 	}
 	data := []byte("data")
-	err = store.Set(uint64(1), data, time.Minute)
+	err = store.Set(ctx, uint64(1), data, time.Minute)
 	if err != nil {
 		t.Error("unexpected error", err)
 	}
 
-	fetchedData, err := store.Get(uint64(1))
+	fetchedData, err := store.Get(ctx, uint64(1))
 	if err != nil {
 		t.Error("unexpected error", err)
 	}
@@ -27,23 +30,25 @@ func TestStore(t *testing.T) {
 		t.Errorf("expected to return '%s', got '%s'", string(data), string(fetchedData))
 	}
 
-	if _, err := store.Get(uint64(2)); err != httpcache.ErrNoEntry {
+	if _, err := store.Get(ctx, uint64(2)); err != httpcache.ErrNoEntry {
 		t.Errorf("expected httpcache.ErrNoEntry, got %s", err)
 	}
 }
 
 func TestStoreGetFewTimes(t *testing.T) {
+	ctx := context.Background()
+
 	store, err := NewStore()
 	if err != nil {
 		t.Fatal("unexpected error", err)
 	}
 	data := []byte("data")
-	err = store.Set(uint64(1), data, time.Minute)
+	err = store.Set(ctx, uint64(1), data, time.Minute)
 	if err != nil {
 		t.Error("unexpected error", err)
 	}
 
-	fetchedData, err := store.Get(uint64(1))
+	fetchedData, err := store.Get(ctx, uint64(1))
 	if err != nil {
 		t.Error("unexpected error", err)
 	}
@@ -51,7 +56,7 @@ func TestStoreGetFewTimes(t *testing.T) {
 		t.Errorf("expected to return '%s', got '%s'", string(data), string(fetchedData))
 	}
 
-	fetchedData, err = store.Get(uint64(1))
+	fetchedData, err = store.Get(ctx, uint64(1))
 	if err != nil {
 		t.Error("unexpected error", err)
 	}
@@ -61,19 +66,21 @@ func TestStoreGetFewTimes(t *testing.T) {
 }
 
 func TestStoreDataCopy(t *testing.T) {
+	ctx := context.Background()
+
 	store, err := NewStore()
 	if err != nil {
 		t.Fatal("unexpected error", err)
 	}
 	data := []byte("data")
 
-	if err = store.Set(uint64(1), data, time.Millisecond); err != nil {
+	if err = store.Set(ctx, uint64(1), data, time.Millisecond); err != nil {
 		t.Error("unexpected error", err)
 	}
 
 	data[0] = 'x' // change original value
 
-	fetchedData, err := store.Get(uint64(1))
+	fetchedData, err := store.Get(ctx, uint64(1))
 	if err != nil {
 		t.Error("unexpected error", err)
 	}
@@ -83,6 +90,8 @@ func TestStoreDataCopy(t *testing.T) {
 }
 
 func TestStoreTTL(t *testing.T) {
+	ctx := context.Background()
+
 	store, err := NewStore()
 	if err != nil {
 		t.Fatal("unexpected error", err)
@@ -90,11 +99,11 @@ func TestStoreTTL(t *testing.T) {
 
 	data := []byte("data")
 
-	if err = store.Set(uint64(1), data, time.Millisecond); err != nil {
+	if err = store.Set(ctx, uint64(1), data, time.Millisecond); err != nil {
 		t.Error("unexpected error", err)
 	}
 
-	fetchedData, err := store.Get(uint64(1))
+	fetchedData, err := store.Get(ctx, uint64(1))
 	if err != nil {
 		t.Error("unexpected error", err)
 	}
@@ -104,27 +113,29 @@ func TestStoreTTL(t *testing.T) {
 
 	time.Sleep(2 * time.Millisecond)
 
-	_, err = store.Get(uint64(1))
+	_, err = store.Get(ctx, uint64(1))
 	if err != httpcache.ErrNoEntry {
 		t.Errorf("expected httpcache.ErrNoEntry, got %s", err)
 	}
 }
 
 func TestStoreCapacity(t *testing.T) {
+	ctx := context.Background()
+
 	store, err := NewStore(WithCapacity(8))
 	if err != nil {
 		t.Fatal("unexpected error", err)
 	}
 
-	if err := store.Set(uint64(1), []byte("1234567890"), time.Minute); err != httpcache.ErrEntryIsTooBig {
+	if err := store.Set(ctx, uint64(1), []byte("1234567890"), time.Minute); err != httpcache.ErrEntryIsTooBig {
 		t.Errorf("unexpected error httpcache.ErrEntryIsTooBig, got '%s'", err)
 	}
 
-	if err := store.Set(uint64(1), []byte("12345678"), time.Minute); err != nil {
+	if err := store.Set(ctx, uint64(1), []byte("12345678"), time.Minute); err != nil {
 		t.Error("unexpected error", err)
 	}
 
-	fetchedData, err := store.Get(uint64(1))
+	fetchedData, err := store.Get(ctx, uint64(1))
 	if err != nil {
 		t.Error("unexpected error", err)
 	}
@@ -134,6 +145,8 @@ func TestStoreCapacity(t *testing.T) {
 }
 
 func TestStoreEviction(t *testing.T) {
+	ctx := context.Background()
+
 	t.Run("one item", func(t *testing.T) {
 		store, err := NewStore(WithCapacity(10))
 		if err != nil {
@@ -141,17 +154,17 @@ func TestStoreEviction(t *testing.T) {
 		}
 		data := []byte("data")
 
-		if err := store.Set(uint64(1), data, time.Minute); err != nil {
+		if err := store.Set(ctx, uint64(1), data, time.Minute); err != nil {
 			t.Error("unexpected error", err)
 		}
-		if err := store.Set(uint64(2), data, time.Minute); err != nil {
+		if err := store.Set(ctx, uint64(2), data, time.Minute); err != nil {
 			t.Error("unexpected error", err)
 		}
-		if err := store.Set(uint64(3), data, time.Minute); err != nil { // exceeds capacity
+		if err := store.Set(ctx, uint64(3), data, time.Minute); err != nil { // exceeds capacity
 			t.Error("unexpected error", err)
 		}
 
-		if _, err := store.Get(uint64(1)); err != httpcache.ErrNoEntry { // evicts least recently used
+		if _, err := store.Get(ctx, uint64(1)); err != httpcache.ErrNoEntry { // evicts least recently used
 			t.Errorf("expected error httpcache.ErrNoEntry, got %s", err)
 		}
 	})
@@ -163,14 +176,14 @@ func TestStoreEviction(t *testing.T) {
 		}
 		data := []byte("data")
 
-		if err := store.Set(uint64(1), data, time.Minute); err != nil {
+		if err := store.Set(ctx, uint64(1), data, time.Minute); err != nil {
 			t.Error("unexpected error", err)
 		}
-		if err := store.Set(uint64(2), data, time.Minute); err != nil {
+		if err := store.Set(ctx, uint64(2), data, time.Minute); err != nil {
 			t.Error("unexpected error", err)
 		}
 		// touch key 1
-		fetchedData, err := store.Get(uint64(1))
+		fetchedData, err := store.Get(ctx, uint64(1))
 		if err != nil {
 			t.Error("unexpected error", err)
 		}
@@ -178,11 +191,11 @@ func TestStoreEviction(t *testing.T) {
 			t.Errorf("expected to return '%s', got '%s'", string(data), string(fetchedData))
 		}
 		// pu another item that exceeds capacity
-		if err := store.Set(uint64(3), data, time.Minute); err != nil {
+		if err := store.Set(ctx, uint64(3), data, time.Minute); err != nil {
 			t.Error("unexpected error", err)
 		}
 
-		if _, err := store.Get(uint64(2)); err != httpcache.ErrNoEntry { // evicts least recently used
+		if _, err := store.Get(ctx, uint64(2)); err != httpcache.ErrNoEntry { // evicts least recently used
 			t.Errorf("expected error httpcache.ErrNoEntry, got %v", err)
 		}
 	})
@@ -194,20 +207,20 @@ func TestStoreEviction(t *testing.T) {
 		}
 		data := []byte("data")
 
-		if err := store.Set(uint64(1), data, time.Minute); err != nil {
+		if err := store.Set(ctx, uint64(1), data, time.Minute); err != nil {
 			t.Error("unexpected error", err)
 		}
-		if err := store.Set(uint64(2), data, time.Minute); err != nil {
+		if err := store.Set(ctx, uint64(2), data, time.Minute); err != nil {
 			t.Error("unexpected error", err)
 		}
-		if err := store.Set(uint64(3), []byte("1234567890"), time.Minute); err != nil { // exceeds capacity
+		if err := store.Set(ctx, uint64(3), []byte("1234567890"), time.Minute); err != nil { // exceeds capacity
 			t.Error("unexpected error", err)
 		}
 
-		if _, err := store.Get(uint64(1)); err != httpcache.ErrNoEntry { // evicts least recently used
+		if _, err := store.Get(ctx, uint64(1)); err != httpcache.ErrNoEntry { // evicts least recently used
 			t.Errorf("expected error httpcache.ErrNoEntry, got %s", err)
 		}
-		if _, err := store.Get(uint64(2)); err != httpcache.ErrNoEntry { // evicts least recently used
+		if _, err := store.Get(ctx, uint64(2)); err != httpcache.ErrNoEntry { // evicts least recently used
 			t.Errorf("expected error httpcache.ErrNoEntry, got %s", err)
 		}
 	})

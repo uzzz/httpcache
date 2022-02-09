@@ -2,6 +2,7 @@ package httpcache
 
 import (
 	"bytes"
+	"context"
 	"encoding/gob"
 	"errors"
 	"fmt"
@@ -18,8 +19,8 @@ var (
 )
 
 type Store interface {
-	Get(key uint64) ([]byte, error)
-	Set(key uint64, response []byte, ttl time.Duration) error
+	Get(ctx context.Context, key uint64) ([]byte, error)
+	Set(ctx context.Context, key uint64, value []byte, ttl time.Duration) error
 }
 
 type keyGenerator interface {
@@ -99,7 +100,7 @@ func (m middleware) ServeHTTP(w http.ResponseWriter, r *http.Request) {
 	}
 
 	key := m.generateKey(r.URL)
-	cr, err := m.getCachedResponse(key)
+	cr, err := m.getCachedResponse(r.Context(), key)
 	if err == ErrNoEntry {
 		rec := newHttpResponseRecorder(w)
 		m.next.ServeHTTP(rec, r)
@@ -108,7 +109,7 @@ func (m middleware) ServeHTTP(w http.ResponseWriter, r *http.Request) {
 			return
 		}
 
-		if err := m.saveCachedResponse(key, newCachedResponse(rec)); err != nil {
+		if err := m.saveCachedResponse(r.Context(), key, newCachedResponse(rec)); err != nil {
 			m.onErrorFunc(err)
 		}
 		return
@@ -138,20 +139,20 @@ func (m middleware) generateKey(u *url.URL) uint64 {
 	return m.keygen.Generate(urlCopy.String())
 }
 
-func (m middleware) saveCachedResponse(key uint64, res cachedResponse) error {
+func (m middleware) saveCachedResponse(ctx context.Context, key uint64, res cachedResponse) error {
 	var buf bytes.Buffer
 	if err := gob.NewEncoder(&buf).Encode(res); err != nil {
 		return fmt.Errorf("failed to encode object: %v", err)
 	}
 
-	if err := m.store.Set(key, buf.Bytes(), m.ttl); err != nil {
+	if err := m.store.Set(ctx, key, buf.Bytes(), m.ttl); err != nil {
 		return fmt.Errorf("failed to save response to store: %v", err)
 	}
 	return nil
 }
 
-func (m middleware) getCachedResponse(key uint64) (cachedResponse, error) {
-	data, err := m.store.Get(key)
+func (m middleware) getCachedResponse(ctx context.Context, key uint64) (cachedResponse, error) {
+	data, err := m.store.Get(ctx, key)
 	if err != nil {
 		return cachedResponse{}, err
 	}

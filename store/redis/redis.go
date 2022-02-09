@@ -77,8 +77,8 @@ func NewStore(opts ...Option) (*Store, error) {
 }
 
 // Get data from store
-func (s *Store) Get(key uint64) ([]byte, error) {
-	cmd := s.client.Get(context.TODO(), keyToString(key))
+func (s *Store) Get(ctx context.Context, key uint64) ([]byte, error) {
+	cmd := s.client.Get(ctx, keyToString(key))
 	result, err := cmd.Bytes()
 	if err == redis.Nil {
 		return nil, httpcache.ErrNoEntry
@@ -89,8 +89,8 @@ func (s *Store) Get(key uint64) ([]byte, error) {
 	return result, nil
 }
 
-func (s *Store) Set(key uint64, data []byte, ttl time.Duration) error {
-	if err := s.client.Set(context.TODO(), keyToString(key), data, ttl).Err(); err != nil {
+func (s *Store) Set(ctx context.Context, key uint64, data []byte, ttl time.Duration) error {
+	if err := s.client.Set(ctx, keyToString(key), data, ttl).Err(); err != nil {
 		return fmt.Errorf("failed to set: %v", err)
 	}
 	return nil

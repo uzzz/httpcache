@@ -1,6 +1,7 @@
 package httpcache
 
 import (
+	"context"
 	"net/http"
 	"net/http/httptest"
 	"testing"
@@ -14,7 +15,7 @@ type testStore struct {
 	setCalled int
 }
 
-func (s *testStore) Get(key uint64) ([]byte, error) {
+func (s *testStore) Get(_ context.Context, key uint64) ([]byte, error) {
 	s.getCalled++
 	if s.data == nil {
 		s.data = make(map[uint64][]byte)
@@ -26,7 +27,7 @@ func (s *testStore) Get(key uint64) ([]byte, error) {
 	return val, nil
 }
 
-func (s *testStore) Set(key uint64, value []byte, _ time.Duration) error {
+func (s *testStore) Set(_ context.Context, key uint64, value []byte, _ time.Duration) error {
 	s.setCalled++
 	if s.data == nil {
 		s.data = make(map[uint64][]byte)

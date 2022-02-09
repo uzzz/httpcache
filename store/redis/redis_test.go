@@ -3,6 +3,7 @@
 package redis
 
 import (
+	"context"
 	"os"
 	"reflect"
 	"testing"
@@ -26,11 +27,11 @@ func TestRedis(t *testing.T) {
 
 	data := []byte("data")
 
-	if err := store.Set(uint64(1), data, 1*time.Minute); err != nil {
+	if err := store.Set(context.Background(), uint64(1), data, 1*time.Minute); err != nil {
 		t.Error("unexpected error", err)
 	}
 
-	fetchedData, err := store.Get(uint64(1))
+	fetchedData, err := store.Get(context.Background(), uint64(1))
 	if err != nil {
 		t.Error("unexpected error", err)
 	}
@@ -38,7 +39,7 @@ func TestRedis(t *testing.T) {
 		t.Errorf("expected to return '%s', got '%s'", string(data), string(fetchedData))
 	}
 
-	if _, err := store.Get(uint64(2)); err != httpcache.ErrNoEntry {
+	if _, err := store.Get(context.Background(), uint64(2)); err != httpcache.ErrNoEntry {
 		t.Errorf("expected httpcache.ErrNoEntry, got %s", err)
 	}
 }
