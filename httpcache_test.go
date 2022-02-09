@@ -142,6 +142,58 @@ func TestMiddleware(t *testing.T) {
 	}
 }
 
+type testSlowStore struct {
+	sleep time.Duration
+}
+
+func (s *testSlowStore) Get(ctx context.Context, key uint64) ([]byte, error) {
+	select {
+	case <-time.After(s.sleep):
+	case <-ctx.Done():
+		return nil, ctx.Err()
+	}
+
+	return nil, ErrNoEntry
+}
+
+func (s *testSlowStore) Set(_ context.Context, key uint64, value []byte, _ time.Duration) error {
+	return nil
+}
+
+func TestMiddlewareTimeouts(t *testing.T) {
+	data := []byte("data")
+
+	store := &testSlowStore{sleep: 200 * time.Millisecond}
+
+	var erred bool
+	mw, err := NewMiddleware(store,
+		WithTimeout(100*time.Millisecond),
+		WithOnErrorFunc(func(_ error) {
+			erred = true
+		}),
+	)
+	if err != nil {
+		t.Fatal("unexpected error", err)
+	}
+	handler := mw(http.HandlerFunc(func(w http.ResponseWriter, r *http.Request) {
+		if _, err := w.Write(data); err != nil {
+			t.Fatalf("unexpected error %s", err)
+		}
+	}))
+
+	req := httptest.NewRequest(http.MethodGet, "/", nil)
+	rr := httptest.NewRecorder()
+
+	handler.ServeHTTP(rr, req)
+
+	if body := rr.Body.Bytes(); !sameByteElements(data, body) {
+		t.Error("unexpected body")
+	}
+	if !erred {
+		t.Error("expected to observe error")
+	}
+}
+
 func sameByteElements(a, b []byte) bool {
 	if len(a) != len(b) {
 		return false
