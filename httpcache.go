@@ -34,22 +34,33 @@ func (_ fnvHashKeyGenerator) Generate(s string) uint64 {
 	return h.Sum64()
 }
 
+type BypassCacheFunc func(r *http.Request) bool
+
+func headerBypassCacheFunc(header string) BypassCacheFunc {
+	return func(r *http.Request) bool {
+		return r.Header.Get(header) != ""
+	}
+}
+
 // Option is used to set middleware settings.
 type Option func(o *Options) error
 
 type Options struct {
-	ttl time.Duration
+	ttl             time.Duration
+	bypassCacheFunc BypassCacheFunc
 }
 
 var defaultOptions = Options{
-	ttl: 24 * time.Hour,
+	ttl:             24 * time.Hour,
+	bypassCacheFunc: headerBypassCacheFunc("X-Bypass-Cache"),
 }
 
 type middleware struct {
-	store  Store
-	keygen KeyGenerator
-	next   http.Handler
-	ttl    time.Duration
+	store       Store
+	keygen      KeyGenerator
+	next        http.Handler
+	ttl         time.Duration
+	bypassCache BypassCacheFunc
 }
 
 func NewMiddleware(store Store, opts ...Option) (func(http.Handler) http.Handler, error) {
@@ -63,16 +74,17 @@ func NewMiddleware(store Store, opts ...Option) (func(http.Handler) http.Handler
 
 	return func(next http.Handler) http.Handler {
 		return &middleware{
-			store:  store,
-			keygen: fnvHashKeyGenerator{},
-			next:   next,
-			ttl:    options.ttl,
+			store:       store,
+			keygen:      fnvHashKeyGenerator{},
+			next:        next,
+			ttl:         options.ttl,
+			bypassCache: options.bypassCacheFunc,
 		}
 	}, nil
 }
 
 func (m middleware) ServeHTTP(w http.ResponseWriter, r *http.Request) {
-	if !m.isCacheable(r) {
+	if !m.isCacheable(r) || m.bypassCache(r) {
 		m.next.ServeHTTP(w, r)
 		return
 	}
@@ -179,6 +191,19 @@ func WithTTL(ttl time.Duration) Option {
 		}
 
 		o.ttl = ttl
+
+		return nil
+	}
+}
+
+// WithBypassCacheHeader sets cache bypass header. By default it is X-Bypass-Cache
+func WithBypassCacheHeader(header string) Option {
+	return func(o *Options) error {
+		if header == "" {
+			return errors.New("header must not be empty")
+		}
+
+		o.bypassCacheFunc = headerBypassCacheFunc(header)
 
 		return nil
 	}

@@ -82,6 +82,16 @@ func TestMiddleware(t *testing.T) {
 			expectedSetCalled: 1,
 		},
 		{
+			name: "similar get requests with cache bypass",
+			requests: []*http.Request{
+				newRequestBuilder().withMethod("GET").withPath("/").build(),
+				newRequestBuilder().withMethod("GET").withPath("/").
+					withHeader("X-Bypass-Cache", "1").build(),
+			},
+			expectedGetCalled: 1,
+			expectedSetCalled: 1,
+		},
+		{
 			name: "different get requests",
 			requests: []*http.Request{
 				httptest.NewRequest(http.MethodGet, "/foo", nil),
@@ -142,4 +152,38 @@ func sameByteElements(a, b []byte) bool {
 		}
 	}
 	return true
+}
+
+type requestBuilder struct {
+	method string
+	path   string
+	header http.Header
+}
+
+func newRequestBuilder() *requestBuilder {
+	return &requestBuilder{}
+}
+
+func (rb *requestBuilder) withMethod(val string) *requestBuilder {
+	rb.method = val
+	return rb
+}
+
+func (rb *requestBuilder) withPath(val string) *requestBuilder {
+	rb.path = val
+	return rb
+}
+
+func (rb *requestBuilder) withHeader(key, val string) *requestBuilder {
+	if rb.header == nil {
+		rb.header = make(http.Header)
+	}
+	rb.header.Set(key, val)
+	return rb
+}
+
+func (rb *requestBuilder) build() *http.Request {
+	req := httptest.NewRequest(rb.method, rb.path, nil)
+	req.Header = rb.header
+	return req
 }
