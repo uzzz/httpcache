@@ -54,14 +54,14 @@ type Option func(o *Options) error
 type Options struct {
 	ttl             time.Duration
 	bypassCacheFunc BypassCacheFunc
-	onErrorFunc     OnErrorFunc
+	onError         OnErrorFunc
 	timeout         time.Duration
 }
 
 var defaultOptions = Options{
 	ttl:             24 * time.Hour,
 	bypassCacheFunc: headerBypassCacheFunc("X-Bypass-Cache"),
-	onErrorFunc:     noopOnErrorFunc,
+	onError:         noopOnErrorFunc,
 }
 
 type middleware struct {
@@ -70,7 +70,7 @@ type middleware struct {
 	keygen      keyGenerator
 	ttl         time.Duration
 	bypassCache BypassCacheFunc
-	onErrorFunc OnErrorFunc
+	onError     OnErrorFunc
 	timeout     time.Duration
 }
 
@@ -90,7 +90,7 @@ func NewMiddleware(store Store, opts ...Option) (func(http.Handler) http.Handler
 			keygen:      fnvHashKeyGenerator{},
 			ttl:         options.ttl,
 			bypassCache: options.bypassCacheFunc,
-			onErrorFunc: options.onErrorFunc,
+			onError:     options.onError,
 			timeout:     options.timeout,
 		}
 	}, nil
@@ -116,12 +116,12 @@ func (m middleware) ServeHTTP(w http.ResponseWriter, r *http.Request) {
 		}
 
 		if err := m.saveCachedResponse(ctx, key, newCachedResponse(rec)); err != nil {
-			m.onErrorFunc(err)
+			m.onError(err)
 		}
 		return
 	}
 	if err != nil {
-		m.onErrorFunc(err)
+		m.onError(err)
 		// Some error has occurred. Gracefully degrade - simply proceed
 		// with the normal flow
 		m.next.ServeHTTP(w, r)
@@ -131,7 +131,7 @@ func (m middleware) ServeHTTP(w http.ResponseWriter, r *http.Request) {
 	copyHeader(w.Header(), cr.Header)
 	w.WriteHeader(cr.StatusCode)
 	if _, err := w.Write(cr.Body); err != nil {
-		m.onErrorFunc(err)
+		m.onError(err)
 	}
 }
 
@@ -239,7 +239,7 @@ func WithOnErrorFunc(f OnErrorFunc) Option {
 			return errors.New("function must not be nil")
 		}
 
-		o.onErrorFunc = f
+		o.onError = f
 
 		return nil
 	}
