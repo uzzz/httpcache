@@ -118,6 +118,8 @@ func (s *Store) Get(key uint64) ([]byte, error) {
 
 	s.al.remove(i.alNode)
 	s.al.addToHead(key)
+	i.alNode = s.al.head
+	s.data[key] = i
 
 	return i.data, nil
 }

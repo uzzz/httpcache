@@ -33,6 +33,34 @@ func TestStore(t *testing.T) {
 	}
 }
 
+func TestStoreGetFewTimes(t *testing.T) {
+	store, err := NewStore()
+	if err != nil {
+		t.Fatal("unexpected error", err)
+	}
+	data := []byte("data")
+	err = store.Set(uint64(1), data, time.Minute)
+	if err != nil {
+		t.Error("unexpected error", err)
+	}
+
+	fetchedData, err := store.Get(uint64(1))
+	if err != nil {
+		t.Error("unexpected error", err)
+	}
+	if !reflect.DeepEqual(data, fetchedData) {
+		t.Errorf("expected to return '%s', got '%s'", string(data), string(fetchedData))
+	}
+
+	fetchedData, err = store.Get(uint64(1))
+	if err != nil {
+		t.Error("unexpected error", err)
+	}
+	if !reflect.DeepEqual(data, fetchedData) {
+		t.Errorf("expected to return '%s', got '%s'", string(data), string(fetchedData))
+	}
+}
+
 func TestStoreDataCopy(t *testing.T) {
 	store, err := NewStore()
 	if err != nil {
