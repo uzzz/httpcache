@@ -22,7 +22,7 @@ type Store interface {
 	Set(key uint64, response []byte, ttl time.Duration) error
 }
 
-type KeyGenerator interface {
+type keyGenerator interface {
 	Generate(string) uint64
 }
 
@@ -57,7 +57,7 @@ var defaultOptions = Options{
 
 type middleware struct {
 	store       Store
-	keygen      KeyGenerator
+	keygen      keyGenerator
 	next        http.Handler
 	ttl         time.Duration
 	bypassCache BypassCacheFunc
