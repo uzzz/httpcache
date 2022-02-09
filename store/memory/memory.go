@@ -67,6 +67,17 @@ type accessListNode struct {
 	key        uint64
 }
 
+// Option is used to set Store settings.
+type Option func(o *Options) error
+
+type Options struct {
+	capacityBytes int
+}
+
+var defaultOptions = Options{
+	capacityBytes: math.MaxInt,
+}
+
 type Store struct {
 	mutex         sync.RWMutex
 	sizeBytes     int
@@ -90,17 +101,6 @@ func NewStore(opts ...Option) (*Store, error) {
 		capacityBytes: options.capacityBytes,
 		al:            &accessList{},
 	}, nil
-}
-
-// Option is used to set Store settings.
-type Option func(o *Options) error
-
-type Options struct {
-	capacityBytes int
-}
-
-var defaultOptions = Options{
-	capacityBytes: math.MaxInt,
 }
 
 // Get data from store
