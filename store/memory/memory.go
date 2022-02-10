@@ -76,7 +76,7 @@ type Options struct {
 }
 
 var defaultOptions = Options{
-	capacityBytes: math.MaxInt,
+	capacityBytes: math.MaxInt32,
 }
 
 type Store struct {
