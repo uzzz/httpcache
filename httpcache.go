@@ -55,7 +55,6 @@ type Options struct {
 	ttl             time.Duration
 	bypassCacheFunc BypassCacheFunc
 	onError         OnErrorFunc
-	timeout         time.Duration
 }
 
 var defaultOptions = Options{
@@ -71,7 +70,6 @@ type middleware struct {
 	ttl         time.Duration
 	bypassCache BypassCacheFunc
 	onError     OnErrorFunc
-	timeout     time.Duration
 }
 
 func NewMiddleware(store Store, opts ...Option) (func(http.Handler) http.Handler, error) {
@@ -91,7 +89,6 @@ func NewMiddleware(store Store, opts ...Option) (func(http.Handler) http.Handler
 			ttl:         options.ttl,
 			bypassCache: options.bypassCacheFunc,
 			onError:     options.onError,
-			timeout:     options.timeout,
 		}
 	}, nil
 }
@@ -102,11 +99,8 @@ func (m middleware) ServeHTTP(w http.ResponseWriter, r *http.Request) {
 		return
 	}
 
-	ctx, cancel := m.context(r.Context())
-	defer cancel()
-
 	key := m.generateKey(r.URL)
-	cr, err := m.getCachedResponse(ctx, key)
+	cr, err := m.getCachedResponse(r.Context(), key)
 	if err == ErrNoEntry {
 		rec := newHttpResponseRecorder(w)
 		m.next.ServeHTTP(rec, r)
@@ -115,7 +109,7 @@ func (m middleware) ServeHTTP(w http.ResponseWriter, r *http.Request) {
 			return
 		}
 
-		if err := m.saveCachedResponse(ctx, key, newCachedResponse(rec)); err != nil {
+		if err := m.saveCachedResponse(r.Context(), key, newCachedResponse(rec)); err != nil {
 			m.onError(err)
 		}
 		return
@@ -167,13 +161,6 @@ func (m middleware) getCachedResponse(ctx context.Context, key uint64) (cachedRe
 		return cachedResponse{}, fmt.Errorf("failed to decode object: %v", err)
 	}
 	return cp, nil
-}
-
-func (m middleware) context(parent context.Context) (context.Context, context.CancelFunc) {
-	if m.timeout == 0 {
-		return parent, func() {}
-	}
-	return context.WithTimeout(parent, m.timeout)
 }
 
 func sortURLParams(URL *url.URL) {
@@ -241,14 +228,6 @@ func WithOnErrorFunc(f OnErrorFunc) Option {
 
 		o.onError = f
 
-		return nil
-	}
-}
-
-// WithTimeout sets cache access timeout. Default: not timeout
-func WithTimeout(t time.Duration) Option {
-	return func(o *Options) error {
-		o.timeout = t
 		return nil
 	}
 }
